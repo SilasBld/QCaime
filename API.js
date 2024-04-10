@@ -10,7 +10,7 @@ document.getElementById('api-form').addEventListener('submit', function(e) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer met_la_clé_là_et_garde_bearer' // Ensure to replace with your actual API key securely
+            'Authorization': 'Bearer clé_API_OpenAI' // Replace with your secure handling method
         },
         body: JSON.stringify({
             model: 'gpt-3.5-turbo-0125',
@@ -21,29 +21,57 @@ document.getElementById('api-form').addEventListener('submit', function(e) {
         })
     })
     .then(response => response.json())
-    
     .then(data => {
         if (data.choices && data.choices.length > 0 && data.choices[0].message) {
             const fullResponse = data.choices[0].message.content.trim();
-            // Utiliser 'Hoo-hoooo !' comme séparateur basé sur votre dernier exemple
             const questions = fullResponse.split('Hoo-hoooo !').filter(question => question.trim() !== '');
-    
+
             let htmlContent = '';
             questions.forEach((questionText, index) => {
-                // Remplacer directement les sauts de ligne dans le texte complet par <br> avant de séparer les questions
                 const formattedQuestionText = questionText.replace(/\n/g, '<br>');
-    
-                // Ajouter la question formatée dans un div
+
                 htmlContent += `<div class="question">${formattedQuestionText}</div>`;
-    
-                // Ajouter un bouton après chaque question
-                htmlContent += `<button type="button" id="question-btn-${index}">Valider la question</button>`;
-    
-                // Ajouter un double saut de ligne pour espacer les questions
+                htmlContent += `<button type="button" class="validate-question" data-index="${index}">Valider la question</button>`;
                 htmlContent += '<br><br>';
             });
-    
+
             responseDiv.innerHTML = htmlContent;
+
+            document.querySelectorAll('.validate-question').forEach(button => {
+                button.addEventListener('click', function() {
+                    const questionIndex = this.getAttribute('data-index');
+                    const questionText = document.querySelectorAll('.question')[questionIndex].innerText.replace(/<br>/g, '\n').split('\n').filter(line => line.trim() !== '');
+                    const examName = document.getElementById('exam-name').value;
+
+                    // Assurez-vous d'ajuster les indices si votre formatage inclut plus de lignes avant les réponses
+                    const dataToSend = {
+                        fields: {
+                            "Question": questionText[0], // La question
+                            "Réponse A": questionText[1], // La bonne réponse
+                            "Réponse B": questionText[2],
+                            "Réponse C": questionText[3],
+                            "Réponse D": questionText[4],
+                            "Intitulé Examen": examName
+                        }
+                    };
+
+                    fetch('fetch_airtable', {                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer token_airtable',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(dataToSend)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Success:', data);
+                        // Gérez ici la réponse de l'API, comme confirmer l'envoi ou afficher une erreur
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                    });
+                });
+            });
         } else {
             responseDiv.innerHTML = "<p>No response generated or the response format is incorrect.</p>";
         }
@@ -52,7 +80,4 @@ document.getElementById('api-form').addEventListener('submit', function(e) {
         console.error('Error:', error);
         responseDiv.innerHTML = "<p>An error occurred while fetching the response.</p>";
     });
-    
-    
-    
 });
